@@ -1,0 +1,35 @@
+{
+  "name": "noties",
+  "version": "1.0.0",
+  "description": "AI-enhanced workflow sticky notes — desktop and web app",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:win": "electron-vite build && electron-builder --win"
+  },
+  "keywords": [
+    "notes",
+    "electron",
+    "react",
+    "ai",
+    "workflow"
+  ],
+  "author": "a-dev-gh",
+  "license": "MIT",
+  "dependencies": {
+    "electron-store": "^11.0.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^28.3.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.7.0"
+  }
+}
