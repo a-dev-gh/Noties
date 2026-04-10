@@ -49,8 +49,14 @@ const WorkflowNotes = (): JSX.Element => {
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 })
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeEditor, setActiveEditor] = useState<string | null>(null)
+  const [promptDialog, setPromptDialog] = useState<{
+    message: string
+    value: string
+    onSubmit: (value: string) => void
+  } | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const editorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const initializedNotes = useRef<Set<string>>(new Set())
 
   // Load persisted data on mount — async-safe via .then()
   useEffect(() => {
@@ -81,15 +87,28 @@ const WorkflowNotes = (): JSX.Element => {
     }
   }
 
-  const insertLink = (): void => {
-    const url = prompt('Enter URL:')
+  const showPrompt = (message: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      setPromptDialog({
+        message,
+        value: '',
+        onSubmit: (value) => {
+          setPromptDialog(null)
+          resolve(value || null)
+        }
+      })
+    })
+  }
+
+  const insertLink = async (): Promise<void> => {
+    const url = await showPrompt('Enter URL:')
     if (url) {
       formatText('createLink', url)
     }
   }
 
-  const insertImage = (): void => {
-    const url = prompt('Enter image URL:')
+  const insertImage = async (): Promise<void> => {
+    const url = await showPrompt('Enter image URL:')
     if (url) {
       formatText('insertImage', url)
     }
@@ -117,19 +136,24 @@ const WorkflowNotes = (): JSX.Element => {
   // ---------------------------------------------------------------------------
   const activeWorkflowData = workflows.find((w) => w.id === activeWorkflow)
 
-  // Sync editor DOM after AI operations — contentEditable owns the DOM node,
-  // so React's dangerouslySetInnerHTML won't update an already-mounted element.
-  // This imperatively writes the new content when it changes from outside the editor.
-  // BUG-005 FIX: Use `activeEditor` (set by onFocus) instead of `document.activeElement`
-  // to guard against overwriting the editor the user is typing in. The old check was
-  // unreliable because document.activeElement can be inconsistent during React effect
-  // execution, and browser HTML normalisation caused el.innerHTML !== note.content to
-  // produce false positives — resetting the cursor to position 0 on every keystroke,
-  // which made text appear to type backwards.
+  // Initialize note content on mount, and sync from external changes (AI fix).
+  // We never use dangerouslySetInnerHTML on the contentEditable div because React
+  // would re-render innerHTML on every state change, resetting the cursor to
+  // position 0 and causing text to type backwards.
   useEffect(() => {
     activeWorkflowData?.notes.forEach((note) => {
       const el = editorRefs.current[note.id]
-      if (el && note.id !== activeEditor && el.innerHTML !== note.content) {
+      if (!el) return
+
+      // First mount — set initial content
+      if (!initializedNotes.current.has(note.id)) {
+        el.innerHTML = note.content
+        initializedNotes.current.add(note.id)
+        return
+      }
+
+      // External update (AI fix) — only sync if user is NOT editing this note
+      if (note.id !== activeEditor && el.innerHTML !== note.content) {
         el.innerHTML = note.content
       }
     })
@@ -186,6 +210,8 @@ const WorkflowNotes = (): JSX.Element => {
   }
 
   const deleteNote = (noteId: string): void => {
+    initializedNotes.current.delete(noteId)
+    delete editorRefs.current[noteId]
     const updated = workflows.map((w) =>
       w.id === activeWorkflow
         ? { ...w, notes: w.notes.filter((n) => n.id !== noteId) }
@@ -434,8 +460,8 @@ const WorkflowNotes = (): JSX.Element => {
   // ---------------------------------------------------------------------------
   // Workflow CRUD
   // ---------------------------------------------------------------------------
-  const addWorkflow = (): void => {
-    const name = prompt('Enter workflow name:')
+  const addWorkflow = async (): Promise<void> => {
+    const name = await showPrompt('Enter workflow name:')
     if (name) {
       const newWorkflow: Workflow = {
         id: `w${Date.now()}`,
@@ -815,7 +841,6 @@ const WorkflowNotes = (): JSX.Element => {
                 maxHeight: '300px',
                 overflowY: 'auto'
               }}
-              dangerouslySetInnerHTML={{ __html: note.content }}
             />
 
             {/* Action buttons */}
@@ -954,6 +979,55 @@ const WorkflowNotes = (): JSX.Element => {
           </div>
         )}
       </div>
+
+      {/* Prompt dialog — replaces window.prompt() which crashes in Electron */}
+      {promptDialog && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20000
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '12px', padding: '24px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)', minWidth: '320px'
+          }}>
+            <p style={{ marginBottom: '12px', fontWeight: 600, color: '#1e293b' }}>
+              {promptDialog.message}
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={promptDialog.value}
+              onChange={(e) => setPromptDialog({ ...promptDialog, value: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') promptDialog.onSubmit(promptDialog.value)
+                if (e.key === 'Escape') { setPromptDialog(null) }
+              }}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: '8px',
+                border: '2px solid #e2e8f0', fontSize: '14px', outline: 'none',
+                fontFamily: "'Plus Jakarta Sans', sans-serif"
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setPromptDialog(null)}
+                style={{
+                  padding: '8px 16px', borderRadius: '6px', border: '1px solid #e2e8f0',
+                  background: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 500
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => promptDialog.onSubmit(promptDialog.value)}
+                style={{
+                  padding: '8px 16px', borderRadius: '6px', border: 'none',
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600
+                }}
+              >OK</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
