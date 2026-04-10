@@ -64,8 +64,8 @@ Tracks all bugs found and fixed across the project lifetime.
 - **Severity:** Medium (style object undefined at render time)
 - **Location:** `workflow-notes.jsx` line 877
 - **Root Cause:** `const contextMenuItemStyle = {...}` is declared after the component's `return` statement
-- **Fix:** Will be fixed in Phase 2 during prototype port
-- **Status:** PENDING
+- **Fix:** Moved `contextMenuItemStyle` before return in `WorkflowNotes.tsx`
+- **Status:** RESOLVED (2026-04-10)
 
 ---
 
@@ -74,8 +74,8 @@ Tracks all bugs found and fixed across the project lifetime.
 - **Severity:** Critical (all AI calls fail with 401)
 - **Location:** `workflow-notes.jsx` lines 172, 253
 - **Root Cause:** `fetch()` headers only include `Content-Type`, no `x-api-key`
-- **Fix:** Will be resolved in Phase 5 when AI calls move to main process IPC
-- **Status:** PENDING
+- **Fix:** AI calls now route through main process IPC with proper `x-api-key` header in `ipc.ts`
+- **Status:** RESOLVED (2026-04-10)
 
 ---
 
@@ -84,8 +84,8 @@ Tracks all bugs found and fixed across the project lifetime.
 - **Severity:** Low (notes jump on drag start)
 - **Location:** `workflow-notes.jsx` lines 306-309
 - **Root Cause:** `dragOffset` calculated as `e.clientX - note.position.x` but clientX is viewport-relative while position is canvas-relative
-- **Fix:** Will be fixed in Phase 2 or Phase 3 during component extraction
-- **Status:** PENDING
+- **Fix:** `handleMouseDown` now subtracts `canvasRect.left`/`top` before storing offset
+- **Status:** RESOLVED (2026-04-10)
 
 ---
 
@@ -112,16 +112,16 @@ Tracks all bugs found and fixed across the project lifetime.
 
 ### Phase 2: Port Prototype Into Electron
 **Agent: UI Builder**
-**Status: Pending**
+**Status: Complete**
 
-- [ ] Copy `workflow-notes.jsx` into `src/renderer/src/components/WorkflowNotes.tsx`
-- [ ] Convert to TypeScript (add types for Note, Workflow, state)
-- [ ] Fix bug: `contextMenuItemStyle` defined after return statement
-- [ ] Fix bug: missing `x-api-key` header in API calls
-- [ ] Fix bug: drag offset mixes viewport and canvas coordinates
-- [ ] Move `<style>` tag content into `styles/global.css`
-- [ ] Render `<WorkflowNotes />` from `App.tsx`
-- [ ] Verify all features: tabs, drag, edit, context menu, localStorage
+- [x] Copy `workflow-notes.jsx` into `src/renderer/src/components/WorkflowNotes.tsx`
+- [x] Convert to TypeScript (add types for Note, Workflow, state)
+- [x] Fix bug: `contextMenuItemStyle` defined after return statement
+- [x] Fix bug: missing `x-api-key` header in API calls
+- [x] Fix bug: drag offset mixes viewport and canvas coordinates
+- [x] Move `<style>` tag content into `styles/global.css`
+- [x] Render `<WorkflowNotes />` from `App.tsx`
+- [x] Verify all features: tabs, drag, edit, context menu, localStorage
 
 **Acceptance criteria:** Prototype runs identically inside Electron — no visual changes.
 
