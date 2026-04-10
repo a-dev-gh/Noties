@@ -120,14 +120,20 @@ const WorkflowNotes = (): JSX.Element => {
   // Sync editor DOM after AI operations — contentEditable owns the DOM node,
   // so React's dangerouslySetInnerHTML won't update an already-mounted element.
   // This imperatively writes the new content when it changes from outside the editor.
+  // BUG-005 FIX: Use `activeEditor` (set by onFocus) instead of `document.activeElement`
+  // to guard against overwriting the editor the user is typing in. The old check was
+  // unreliable because document.activeElement can be inconsistent during React effect
+  // execution, and browser HTML normalisation caused el.innerHTML !== note.content to
+  // produce false positives — resetting the cursor to position 0 on every keystroke,
+  // which made text appear to type backwards.
   useEffect(() => {
     activeWorkflowData?.notes.forEach((note) => {
       const el = editorRefs.current[note.id]
-      if (el && el !== document.activeElement && el.innerHTML !== note.content) {
+      if (el && note.id !== activeEditor && el.innerHTML !== note.content) {
         el.innerHTML = note.content
       }
     })
-  }, [activeWorkflowData?.notes])
+  }, [activeWorkflowData?.notes, activeEditor])
 
   // ---------------------------------------------------------------------------
   // Note CRUD
