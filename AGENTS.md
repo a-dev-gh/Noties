@@ -22,18 +22,70 @@ The following specialized agents are used throughout development. Each agent has
 
 ---
 
-## Known Blockers
+## Known Blockers — RESOLVED
 
 ### Electron `require("electron")` Resolution Bug on Windows 10
 
-- `require("electron")` in the main process returns the binary path string (`electron.exe`) instead of the Electron API object
-- `process.type` is `undefined` even inside the Electron process
+**Status: Resolved (2026-04-09)**
+
+**Original symptoms:**
+- `require("electron")` in the main process returned the binary path string (`electron.exe`) instead of the Electron API object
+- `process.type` was `undefined` even inside the Electron process
 - Tested on Electron 28, 33, and 36 — same issue on all versions
 - `process.versions.electron` IS set correctly, confirming we're inside Electron
-- The issue occurs regardless of whether running via `electron .`, `electron file.js`, or `electron-vite dev`
-- The `externalizeDepsPlugin` in electron-vite correctly bundles to `const electron = require("electron")` but the runtime resolution fails
-- This appears to be a Windows 10 environment issue, not a code issue
-- **Next steps to try**: (1) Run from a path without spaces, (2) Reinstall Electron with `npm rebuild electron`, (3) Delete node_modules and reinstall fresh, (4) Try `electron-forge` as an alternative, (5) Check if antivirus/Windows Defender is interfering with Electron's binary
+- The issue occurred regardless of whether running via `electron .`, `electron file.js`, or `electron-vite dev`
+- The `externalizeDepsPlugin` in electron-vite correctly bundled to `const electron = require("electron")` but the runtime resolution failed
+
+**Root cause:** VS Code's terminal inherits `ELECTRON_RUN_AS_NODE=1` from VS Code's own environment — VS Code is itself an Electron app. This environment variable tells `electron.exe` to behave as plain Node.js, which disables `require("electron")` API resolution and causes `process.type` to be undefined.
+
+**Fix:** Created `scripts/electron-dev.js` — a launcher script that explicitly strips `ELECTRON_RUN_AS_NODE` from the environment before spawning `electron-vite`. All npm scripts (`dev`, `build`, etc.) were updated to route through this launcher.
+
+---
+
+## Bug Log
+
+Tracks all bugs found and fixed across the project lifetime.
+
+---
+
+**BUG-001: `ELECTRON_RUN_AS_NODE` breaks Electron API on Windows**
+- **Found:** Phase 1 (2026-04-09)
+- **Severity:** Critical (app won't launch)
+- **Symptoms:** `require("electron")` returns binary path string instead of API object. `process.type` undefined. `app`, `BrowserWindow` all undefined.
+- **Root Cause:** VS Code terminal inherits `ELECTRON_RUN_AS_NODE=1` which forces electron.exe into Node.js mode
+- **Fix:** `scripts/electron-dev.js` strips env var before launch. All npm scripts routed through it.
+- **Status:** RESOLVED (2026-04-09)
+- **Files changed:** `scripts/electron-dev.js` (new), `package.json` (scripts updated)
+
+---
+
+**BUG-002: `contextMenuItemStyle` defined after return statement** (from prototype)
+- **Found:** Phase 1 analysis (2026-04-09)
+- **Severity:** Medium (style object undefined at render time)
+- **Location:** `workflow-notes.jsx` line 877
+- **Root Cause:** `const contextMenuItemStyle = {...}` is declared after the component's `return` statement
+- **Fix:** Will be fixed in Phase 2 during prototype port
+- **Status:** PENDING
+
+---
+
+**BUG-003: Missing `x-api-key` header in Claude API calls** (from prototype)
+- **Found:** Phase 1 analysis (2026-04-09)
+- **Severity:** Critical (all AI calls fail with 401)
+- **Location:** `workflow-notes.jsx` lines 172, 253
+- **Root Cause:** `fetch()` headers only include `Content-Type`, no `x-api-key`
+- **Fix:** Will be resolved in Phase 5 when AI calls move to main process IPC
+- **Status:** PENDING
+
+---
+
+**BUG-004: Drag offset mixes viewport and canvas coordinates** (from prototype)
+- **Found:** Phase 1 analysis (2026-04-09)
+- **Severity:** Low (notes jump on drag start)
+- **Location:** `workflow-notes.jsx` lines 306-309
+- **Root Cause:** `dragOffset` calculated as `e.clientX - note.position.x` but clientX is viewport-relative while position is canvas-relative
+- **Fix:** Will be fixed in Phase 2 or Phase 3 during component extraction
+- **Status:** PENDING
 
 ---
 
@@ -41,7 +93,7 @@ The following specialized agents are used throughout development. Each agent has
 
 ### Phase 1: Project Scaffolding
 **Agent: Orchestrator**
-**Status: In Progress (Blocker)**
+**Status: Complete**
 
 - [x] Initialize npm project with `package.json`
 - [x] Install dependencies: react, react-dom, zustand, electron, electron-store, electron-vite, typescript

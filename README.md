@@ -18,7 +18,9 @@ Noties is a productivity tool for organizing thoughts, tasks, and research acros
 
 ## Current Status
 
-**Phase 1: Scaffolding** — In progress. Project structure created, dependencies installed, all code written. Blocked on an Electron binary issue on Windows 10 where `require("electron")` doesn't resolve correctly. See [AGENTS.md](AGENTS.md) for details.
+**Phase 1: Scaffolding** — Complete. Project structure created, all dependencies installed, Electron + React + TypeScript app launches successfully. An environment bug (`ELECTRON_RUN_AS_NODE`) was diagnosed and fixed. Ready for Phase 2.
+
+**Next:** Phase 2 — Port the prototype (`workflow-notes.jsx`) into the Electron shell.
 
 ## Tech Stack
 
