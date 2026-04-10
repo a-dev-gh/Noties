@@ -20,6 +20,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // Open DevTools in dev mode to catch renderer errors
+    if (process.env['ELECTRON_RENDERER_URL']) {
+      mainWindow.webContents.openDevTools()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -34,6 +38,9 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+// Disable GPU acceleration to work around Windows cache/GPU process crashes
+app.disableHardwareAcceleration()
 
 app.whenReady().then(() => {
   // Register all IPC handlers before the window is created so that any

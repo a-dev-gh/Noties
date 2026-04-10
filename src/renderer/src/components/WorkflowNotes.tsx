@@ -63,18 +63,6 @@ const WorkflowNotes = (): JSX.Element => {
       .catch((err) => console.error('[storage] load failed:', err))
   }, [])
 
-  // Sync editor DOM after AI operations — contentEditable owns the DOM node,
-  // so React's dangerouslySetInnerHTML won't update an already-mounted element.
-  // This imperatively writes the new content when it changes from outside the editor.
-  useEffect(() => {
-    activeWorkflowData?.notes.forEach((note) => {
-      const el = editorRefs.current[note.id]
-      if (el && el !== document.activeElement && el.innerHTML !== note.content) {
-        el.innerHTML = note.content
-      }
-    })
-  }, [activeWorkflowData?.notes])
-
   // Close context menu on any document click
   useEffect(() => {
     const handleClick = (): void => setContextMenu(null)
@@ -128,6 +116,18 @@ const WorkflowNotes = (): JSX.Element => {
   // Derived state
   // ---------------------------------------------------------------------------
   const activeWorkflowData = workflows.find((w) => w.id === activeWorkflow)
+
+  // Sync editor DOM after AI operations — contentEditable owns the DOM node,
+  // so React's dangerouslySetInnerHTML won't update an already-mounted element.
+  // This imperatively writes the new content when it changes from outside the editor.
+  useEffect(() => {
+    activeWorkflowData?.notes.forEach((note) => {
+      const el = editorRefs.current[note.id]
+      if (el && el !== document.activeElement && el.innerHTML !== note.content) {
+        el.innerHTML = note.content
+      }
+    })
+  }, [activeWorkflowData?.notes])
 
   // ---------------------------------------------------------------------------
   // Note CRUD
