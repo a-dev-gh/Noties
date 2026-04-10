@@ -22,11 +22,26 @@ The following specialized agents are used throughout development. Each agent has
 
 ---
 
+## Known Blockers
+
+### Electron `require("electron")` Resolution Bug on Windows 10
+
+- `require("electron")` in the main process returns the binary path string (`electron.exe`) instead of the Electron API object
+- `process.type` is `undefined` even inside the Electron process
+- Tested on Electron 28, 33, and 36 — same issue on all versions
+- `process.versions.electron` IS set correctly, confirming we're inside Electron
+- The issue occurs regardless of whether running via `electron .`, `electron file.js`, or `electron-vite dev`
+- The `externalizeDepsPlugin` in electron-vite correctly bundles to `const electron = require("electron")` but the runtime resolution fails
+- This appears to be a Windows 10 environment issue, not a code issue
+- **Next steps to try**: (1) Run from a path without spaces, (2) Reinstall Electron with `npm rebuild electron`, (3) Delete node_modules and reinstall fresh, (4) Try `electron-forge` as an alternative, (5) Check if antivirus/Windows Defender is interfering with Electron's binary
+
+---
+
 ## Development Phases
 
-### Phase 1: Project Scaffolding ✅
+### Phase 1: Project Scaffolding
 **Agent: Orchestrator**
-**Status: Complete**
+**Status: In Progress (Blocker)**
 
 - [x] Initialize npm project with `package.json`
 - [x] Install dependencies: react, react-dom, zustand, electron, electron-store, electron-vite, typescript

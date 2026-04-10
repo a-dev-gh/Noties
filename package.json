@@ -4,10 +4,10 @@
   "description": "AI-enhanced workflow sticky notes — desktop and web app",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "preview": "electron-vite preview",
-    "build:win": "electron-vite build && electron-builder --win"
+    "dev": "node scripts/electron-dev.js dev",
+    "build": "node scripts/electron-dev.js build",
+    "preview": "node scripts/electron-dev.js preview",
+    "build:win": "node scripts/electron-dev.js build && electron-builder --win"
   },
   "keywords": [
     "notes",

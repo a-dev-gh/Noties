@@ -16,6 +16,10 @@ Noties is a productivity tool for organizing thoughts, tasks, and research acros
 - **Persistent Storage** — Desktop: file-based persistence via electron-store. Web: localStorage fallback
 - **Secure API Handling** — API keys never touch the renderer; all AI calls proxy through the Electron main process
 
+## Current Status
+
+**Phase 1: Scaffolding** — In progress. Project structure created, dependencies installed, all code written. Blocked on an Electron binary issue on Windows 10 where `require("electron")` doesn't resolve correctly. See [AGENTS.md](AGENTS.md) for details.
+
 ## Tech Stack
 
 | Layer | Technology |
