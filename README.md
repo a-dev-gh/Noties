@@ -1,5 +1,14 @@
 # Noties
 
+![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
+![Platform](https://img.shields.io/badge/Platform-Desktop%20%7C%20Web-blue)
+![Electron](https://img.shields.io/badge/Electron-28-47848F?logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-5-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 AI-enhanced workflow sticky notes — available as a desktop app (Electron) and web app.
 
 ## Overview
@@ -23,6 +32,15 @@ Noties is a productivity tool for organizing thoughts, tasks, and research acros
 **Next:** Phase 2 — Port the prototype (`workflow-notes.jsx`) into the Electron shell.
 
 ## Tech Stack
+
+![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-433E38?style=for-the-badge&logo=npm&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+
+### Stack Details
 
 | Layer | Technology |
 |---|---|
