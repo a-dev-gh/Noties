@@ -27,9 +27,9 @@ Noties is a productivity tool for organizing thoughts, tasks, and research acros
 
 ## Current Status
 
-**Phase 1: Scaffolding** — Complete. Project structure created, all dependencies installed, Electron + React + TypeScript app launches successfully. An environment bug (`ELECTRON_RUN_AS_NODE`) was diagnosed and fixed. Ready for Phase 2.
+**Phase 2: Prototype Port** — Complete. Full prototype ported to TypeScript, running inside Electron. All 3 prototype bugs fixed. IPC handlers for storage (electron-store) and AI (Anthropic API proxy) implemented. Code reviewed and fixes applied.
 
-**Next:** Phase 2 — Port the prototype (`workflow-notes.jsx`) into the Electron shell.
+**Next:** Phase 3 — Component decomposition (split 950-line monolith into focused components).
 
 ## Tech Stack
 
