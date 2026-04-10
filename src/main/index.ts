@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import { registerIPC } from './ipc'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -12,7 +13,8 @@ function createWindow(): void {
     title: 'Noties',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      contextIsolation: true
     }
   })
 
@@ -34,6 +36,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Register all IPC handlers before the window is created so that any
+  // invoke calls made during renderer initialisation are already handled.
+  registerIPC()
+
   createWindow()
 
   app.on('activate', () => {
