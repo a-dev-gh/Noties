@@ -12,6 +12,12 @@ export interface Position {
   y: number
 }
 
+/** Tracks the pan/scroll offset of the infinite canvas. */
+export interface CanvasViewport {
+  scrollX: number
+  scrollY: number
+}
+
 // ---------------------------------------------------------------------------
 // Domain Models
 // ---------------------------------------------------------------------------
@@ -19,6 +25,7 @@ export interface Position {
 /** A single sticky note on the canvas. */
 export interface Note {
   id: string
+  title?: string
   content: string
   position: Position
   hasUnsavedChanges: boolean
@@ -39,6 +46,11 @@ export interface Workflow {
 // ---------------------------------------------------------------------------
 // UI State
 // ---------------------------------------------------------------------------
+
+/** Fullscreen editor overlay state. null when no note is expanded. */
+export interface FullscreenEditorState {
+  noteId: string
+}
 
 /** Right-click context menu state. null when closed. */
 export interface ContextMenuState {
@@ -87,6 +99,7 @@ export interface CanvasProps {
   onDeleteNote: (noteId: string) => void
   onFixWithAI: (noteId: string) => void
   onFormatText: (command: string, value?: string) => void
+  onNoteDoubleClick: (noteId: string) => void
 }
 
 export interface NoteCardProps {
@@ -94,12 +107,14 @@ export interface NoteCardProps {
   isDragging: boolean
   onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void
   onContentChange: (content: string) => void
+  onTitleChange: (title: string) => void
   onFocus: () => void
   onContextMenu: (e: React.MouseEvent) => void
   onSave: () => void
   onDelete: () => void
   onFixWithAI: () => void
   onFormatText: (command: string, value?: string) => void
+  onDoubleClick: () => void
 }
 
 export interface NoteToolbarProps {
@@ -126,4 +141,14 @@ export interface ContextMenuProps {
 
 export interface EmptyCanvasProps {
   onAddNote: () => void
+}
+
+export interface FullscreenEditorProps {
+  note: Note
+  onContentChange: (content: string) => void
+  onTitleChange: (title: string) => void
+  onSave: () => void
+  onFixWithAI: () => void
+  onFormatText: (command: string, value?: string) => void
+  onClose: () => void
 }

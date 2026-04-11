@@ -4,10 +4,12 @@ import type {
   Workflow,
   Position,
   ContextMenuState,
+  FullscreenEditorState,
   StoragePayload
 } from '../types'
 import Header from './Header'
 import Canvas from './Canvas'
+import FullscreenEditor from './FullscreenEditor'
 import PromptDialog from './PromptDialog'
 import type { PromptDialogState } from './PromptDialog'
 
@@ -52,6 +54,7 @@ const WorkflowNotes = (): JSX.Element => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeEditor, setActiveEditor] = useState<string | null>(null)
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null)
+  const [fullscreenNote, setFullscreenNote] = useState<FullscreenEditorState | null>(null)
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const editorRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -156,6 +159,7 @@ const WorkflowNotes = (): JSX.Element => {
   const addNote = (): void => {
     const newNote: Note = {
       id: `note_${Date.now()}`,
+      title: '',
       content: '',
       position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
       hasUnsavedChanges: false,
@@ -165,6 +169,18 @@ const WorkflowNotes = (): JSX.Element => {
       w.id === activeWorkflow ? { ...w, notes: [...w.notes, newNote] } : w
     )
     saveToStorage(updated)
+  }
+
+  const updateNoteTitle = (noteId: string, title: string): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            notes: w.notes.map((n) => (n.id === noteId ? { ...n, title } : n))
+          }
+        : w
+    )
+    setWorkflows(updated)
   }
 
   const updateNoteContent = (noteId: string, content: string): void => {
@@ -369,24 +385,25 @@ const WorkflowNotes = (): JSX.Element => {
 
     setIsDragging(noteId)
 
-    // BUG-004 FIX: clientX/Y are viewport coords; note.position is canvas-relative.
-    // Subtract the canvas rect so the offset stays consistent during the drag.
-    const canvasRect = canvasRef.current!.getBoundingClientRect()
+    // clientX/Y are viewport coords; note.position is virtual-canvas-relative.
+    // Subtract the scroll container's bounding rect AND its current scroll offset
+    // so the drag offset stays consistent throughout the gesture.
+    const canvas = canvasRef.current!
+    const canvasRect = canvas.getBoundingClientRect()
     setDragOffset({
-      x: e.clientX - canvasRect.left - note.position.x,
-      y: e.clientY - canvasRect.top - note.position.y
+      x: e.clientX - canvasRect.left + canvas.scrollLeft - note.position.x,
+      y: e.clientY - canvasRect.top + canvas.scrollTop - note.position.y
     })
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (!isDragging) return
 
-    const canvasRect = canvasRef.current!.getBoundingClientRect()
-    let newX = e.clientX - canvasRect.left - dragOffset.x
-    let newY = e.clientY - canvasRect.top - dragOffset.y
-
-    newX = Math.max(0, Math.min(newX, canvasRect.width - 320))
-    newY = Math.max(0, Math.min(newY, canvasRect.height - 240))
+    const canvas = canvasRef.current!
+    const canvasRect = canvas.getBoundingClientRect()
+    // Include scroll offset so notes track the pointer correctly on a scrolled canvas.
+    const newX = e.clientX - canvasRect.left + canvas.scrollLeft - dragOffset.x
+    const newY = e.clientY - canvasRect.top + canvas.scrollTop - dragOffset.y
 
     const updated = workflows.map((w) =>
       w.id === activeWorkflow
@@ -465,6 +482,7 @@ const WorkflowNotes = (): JSX.Element => {
         onMouseUp={handleMouseUp}
         onNoteMouseDown={handleMouseDown}
         onNoteContentChange={updateNoteContent}
+        onNoteTitleChange={updateNoteTitle}
         onNoteFocus={setActiveEditor}
         onNoteContextMenu={(e, noteId) => {
           e.preventDefault()
@@ -476,8 +494,25 @@ const WorkflowNotes = (): JSX.Element => {
         onFormatText={handleFormatText}
         onSearchWithAI={searchWithAI}
         onDuplicateNote={duplicateNote}
+        onNoteDoubleClick={(noteId) => setFullscreenNote({ noteId })}
         editorRefCallback={editorRefCallback}
       />
+
+      {fullscreenNote && (() => {
+        const note = activeWorkflowData?.notes.find((n) => n.id === fullscreenNote.noteId)
+        if (!note) return null
+        return (
+          <FullscreenEditor
+            note={note}
+            onContentChange={(content) => updateNoteContent(note.id, content)}
+            onTitleChange={(title) => updateNoteTitle(note.id, title)}
+            onSave={() => saveNote(note.id)}
+            onFixWithAI={() => fixWithAI(note.id)}
+            onFormatText={handleFormatText}
+            onClose={() => setFullscreenNote(null)}
+          />
+        )
+      })()}
 
       {promptDialog && (
         <PromptDialog

@@ -8,8 +8,13 @@ interface CanvasExtendedProps extends CanvasProps {
   canvasRef: React.RefObject<HTMLDivElement>
   onSearchWithAI: (noteId: string) => void
   onDuplicateNote: (noteId: string) => void
+  onNoteTitleChange: (noteId: string, title: string) => void
   editorRefCallback: (noteId: string) => (el: HTMLDivElement | null) => void
 }
+
+// Virtual canvas dimensions — notes can be placed anywhere within this space.
+const VIRTUAL_WIDTH = 3000
+const VIRTUAL_HEIGHT = 3000
 
 const Canvas = ({
   canvasRef,
@@ -20,6 +25,7 @@ const Canvas = ({
   onMouseUp,
   onNoteMouseDown,
   onNoteContentChange,
+  onNoteTitleChange,
   onNoteFocus,
   onNoteContextMenu,
   onSaveNote,
@@ -28,6 +34,7 @@ const Canvas = ({
   onFormatText,
   onSearchWithAI,
   onDuplicateNote,
+  onNoteDoubleClick,
   editorRefCallback
 }: CanvasExtendedProps): JSX.Element => {
   return (
@@ -38,34 +45,45 @@ const Canvas = ({
       style={{
         flex: 1,
         position: 'relative',
-        background: '#fafafa',
-        backgroundImage: `
-          linear-gradient(rgba(102, 126, 234, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(102, 126, 234, 0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: '40px 40px',
-        overflow: 'hidden',
+        overflow: 'auto',
         cursor: isDraggingId ? 'grabbing' : 'default'
       }}
     >
-      {notes.map((note) => (
-        <StickyNote
-          key={note.id}
-          note={note}
-          isDragging={isDraggingId === note.id}
-          onMouseDown={(e) => onNoteMouseDown(note.id, e)}
-          onContentChange={(content) => onNoteContentChange(note.id, content)}
-          onFocus={() => onNoteFocus(note.id)}
-          onContextMenu={(e) => onNoteContextMenu(e, note.id)}
-          onSave={() => onSaveNote(note.id)}
-          onDelete={() => onDeleteNote(note.id)}
-          onFixWithAI={() => onFixWithAI(note.id)}
-          onFormatText={onFormatText}
-          editorRef={editorRefCallback(note.id)}
-        />
-      ))}
+      {/* Scrollable virtual surface */}
+      <div
+        style={{
+          position: 'relative',
+          width: `${VIRTUAL_WIDTH}px`,
+          height: `${VIRTUAL_HEIGHT}px`,
+          background: '#fafafa',
+          backgroundImage: `
+            linear-gradient(rgba(102, 126, 234, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(102, 126, 234, 0.03) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px'
+        }}
+      >
+        {notes.map((note) => (
+          <StickyNote
+            key={note.id}
+            note={note}
+            isDragging={isDraggingId === note.id}
+            onMouseDown={(e) => onNoteMouseDown(note.id, e)}
+            onContentChange={(content) => onNoteContentChange(note.id, content)}
+            onTitleChange={(title) => onNoteTitleChange(note.id, title)}
+            onFocus={() => onNoteFocus(note.id)}
+            onContextMenu={(e) => onNoteContextMenu(e, note.id)}
+            onSave={() => onSaveNote(note.id)}
+            onDelete={() => onDeleteNote(note.id)}
+            onFixWithAI={() => onFixWithAI(note.id)}
+            onFormatText={onFormatText}
+            onDoubleClick={() => onNoteDoubleClick(note.id)}
+            editorRef={editorRefCallback(note.id)}
+          />
+        ))}
 
-      {notes.length === 0 && <EmptyState />}
+        {notes.length === 0 && <EmptyState />}
+      </div>
 
       {contextMenu && (
         <ContextMenu

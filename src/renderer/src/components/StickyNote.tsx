@@ -12,12 +12,14 @@ const StickyNote = ({
   isDragging,
   onMouseDown,
   onContentChange,
+  onTitleChange,
   onFocus,
   onContextMenu,
   onSave,
   onDelete,
   onFixWithAI,
   onFormatText,
+  onDoubleClick,
   editorRef
 }: StickyNoteProps): JSX.Element => {
   const isLoading = !!(note.isSearching || note.isFixing)
@@ -51,23 +53,27 @@ const StickyNote = ({
       {/* Drag handle */}
       <div
         onMouseDown={onMouseDown}
+        onDoubleClick={onDoubleClick}
         style={{
-          padding: '12px 16px',
+          padding: '10px 12px',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           cursor: 'grab',
           background:
-            'linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05))'
+            'linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05))',
+          gap: '8px'
         }}
       >
+        {/* Grip dots */}
         <div
           style={{
             fontSize: '18px',
             color: '#94a3b8',
             display: 'flex',
-            gap: '4px'
+            gap: '4px',
+            flexShrink: 0
           }}
         >
           <div
@@ -96,8 +102,38 @@ const StickyNote = ({
           />
         </div>
 
+        {/* Editable title */}
+        <input
+          type="text"
+          value={note.title ?? ''}
+          placeholder="Untitled note"
+          onChange={(e) => onTitleChange(e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          style={{
+            flex: 1,
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#1e293b',
+            cursor: 'text',
+            padding: '2px 4px',
+            borderRadius: '4px',
+            transition: 'background 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.background = 'rgba(102, 126, 234, 0.08)'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.background = 'transparent'
+          }}
+        />
+
         <button
           onClick={onDelete}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
             background: 'none',
             border: 'none',
@@ -105,7 +141,8 @@ const StickyNote = ({
             cursor: 'pointer',
             fontSize: '20px',
             padding: '0 4px',
-            transition: 'color 0.2s'
+            transition: 'color 0.2s',
+            flexShrink: 0
           }}
           onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) =>
             (e.currentTarget.style.color = '#ef4444')
