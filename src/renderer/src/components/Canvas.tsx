@@ -1,6 +1,7 @@
 import React from 'react'
 import type { CanvasProps } from '../types'
 import StickyNote from './StickyNote'
+import SectionHeaderCard from './SectionHeaderCard'
 import EmptyState from './EmptyState'
 import ContextMenu from './ContextMenu'
 
@@ -19,11 +20,14 @@ const VIRTUAL_HEIGHT = 3000
 const Canvas = ({
   canvasRef,
   notes,
+  sections,
   isDraggingId,
+  draggingSectionId,
   contextMenu,
   onMouseMove,
   onMouseUp,
   onNoteMouseDown,
+  onSectionMouseDown,
   onNoteContentChange,
   onNoteTitleChange,
   onNoteFocus,
@@ -35,6 +39,8 @@ const Canvas = ({
   onSearchWithAI,
   onDuplicateNote,
   onNoteDoubleClick,
+  onDeleteSection,
+  onUpdateSectionLabel,
   editorRefCallback
 }: CanvasExtendedProps): JSX.Element => {
   return (
@@ -46,7 +52,7 @@ const Canvas = ({
         flex: 1,
         position: 'relative',
         overflow: 'auto',
-        cursor: isDraggingId ? 'grabbing' : 'default'
+        cursor: (isDraggingId || draggingSectionId) ? 'grabbing' : 'default'
       }}
     >
       {/* Scrollable virtual surface */}
@@ -63,6 +69,19 @@ const Canvas = ({
           backgroundSize: '40px 40px'
         }}
       >
+        {/* Section header cards */}
+        {sections.map((section) => (
+          <SectionHeaderCard
+            key={section.id}
+            section={section}
+            isDragging={draggingSectionId === section.id}
+            onMouseDown={(e) => onSectionMouseDown(section.id, e)}
+            onDelete={() => onDeleteSection(section.id)}
+            onLabelChange={(label) => onUpdateSectionLabel(section.id, label)}
+          />
+        ))}
+
+        {/* Sticky notes */}
         {notes.map((note) => (
           <StickyNote
             key={note.id}
@@ -82,7 +101,7 @@ const Canvas = ({
           />
         ))}
 
-        {notes.length === 0 && <EmptyState />}
+        {notes.length === 0 && sections.length === 0 && <EmptyState />}
       </div>
 
       {contextMenu && (

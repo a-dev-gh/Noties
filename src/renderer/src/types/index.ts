@@ -34,13 +34,28 @@ export interface Note {
   isSearching?: boolean
   /** Transient: true while an AI fix request is in-flight */
   isFixing?: boolean
+  /** Section this note belongs to (stacked mode) */
+  sectionId?: string | null
+  /** Order within its section (stacked mode) */
+  order?: number
 }
 
-/** A workflow is a named collection of notes. */
+/** A labeled divider/grouping header on the canvas. */
+export interface SectionHeader {
+  id: string
+  label: string
+  position: Position
+  order: number
+  color?: string
+}
+
+/** A workflow is a named collection of notes and sections. */
 export interface Workflow {
   id: string
   name: string
   notes: Note[]
+  sections: SectionHeader[]
+  layoutMode: 'free' | 'stacked'
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +84,8 @@ export interface PersistedWorkflow {
   id: string
   name: string
   notes: PersistedNote[]
+  sections: SectionHeader[]
+  layoutMode: 'free' | 'stacked'
 }
 
 export type StoragePayload = PersistedWorkflow[]
@@ -83,15 +100,21 @@ export interface HeaderProps {
   onSelectWorkflow: (workflowId: string) => void
   onAddWorkflow: () => void
   onAddNote: () => void
+  onAddSection: () => void
+  layoutMode: 'free' | 'stacked'
+  onToggleLayoutMode: (mode: 'free' | 'stacked') => void
 }
 
 export interface CanvasProps {
   notes: Note[]
+  sections: SectionHeader[]
   isDraggingId: string | null
+  draggingSectionId: string | null
   contextMenu: ContextMenuState | null
   onMouseMove: (e: React.MouseEvent<HTMLDivElement>) => void
   onMouseUp: () => void
   onNoteMouseDown: (noteId: string, e: React.MouseEvent<HTMLDivElement>) => void
+  onSectionMouseDown: (sectionId: string, e: React.MouseEvent<HTMLDivElement>) => void
   onNoteContentChange: (noteId: string, content: string) => void
   onNoteFocus: (noteId: string) => void
   onNoteContextMenu: (e: React.MouseEvent, noteId: string) => void
@@ -100,6 +123,8 @@ export interface CanvasProps {
   onFixWithAI: (noteId: string) => void
   onFormatText: (command: string, value?: string) => void
   onNoteDoubleClick: (noteId: string) => void
+  onDeleteSection: (sectionId: string) => void
+  onUpdateSectionLabel: (sectionId: string, label: string) => void
 }
 
 export interface NoteCardProps {

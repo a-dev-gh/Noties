@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import type {
   Note,
   Workflow,
+  SectionHeader,
   Position,
   ContextMenuState,
   FullscreenEditorState,
@@ -9,6 +10,7 @@ import type {
 } from '../types'
 import Header from './Header'
 import Canvas from './Canvas'
+import StackedCanvas from './StackedCanvas'
 import FullscreenEditor from './FullscreenEditor'
 import PromptDialog from './PromptDialog'
 import type { PromptDialogState } from './PromptDialog'
@@ -39,18 +41,49 @@ const persistToStorage = (data: StoragePayload): void => {
   }
 }
 
+/** Migrate older persisted workflows that lack sections/layoutMode fields. */
+const migrateWorkflows = (raw: StoragePayload): Workflow[] =>
+  raw.map((w) => ({
+    ...w,
+    sections: (w as Workflow).sections ?? [],
+    layoutMode: (w as Workflow).layoutMode ?? 'free'
+  }))
+
+// ---------------------------------------------------------------------------
+// Default workflows
+// ---------------------------------------------------------------------------
+const DEFAULT_WORKFLOWS: Workflow[] = [
+  { id: 'w1', name: 'Frontend Development', notes: [], sections: [], layoutMode: 'free' },
+  { id: 'w2', name: 'API Integration', notes: [], sections: [], layoutMode: 'free' },
+  { id: 'w3', name: 'Database Design', notes: [], sections: [], layoutMode: 'free' }
+]
+
+// Palette of accent colors cycled for new sections
+const SECTION_COLORS = [
+  '#667eea',
+  '#f093fb',
+  '#4ade80',
+  '#fb923c',
+  '#38bdf8',
+  '#f43f5e',
+  '#a78bfa'
+]
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 const WorkflowNotes = (): JSX.Element => {
-  const [workflows, setWorkflows] = useState<Workflow[]>([
-    { id: 'w1', name: 'Frontend Development', notes: [] },
-    { id: 'w2', name: 'API Integration', notes: [] },
-    { id: 'w3', name: 'Database Design', notes: [] }
-  ])
+  const [workflows, setWorkflows] = useState<Workflow[]>(DEFAULT_WORKFLOWS)
   const [activeWorkflow, setActiveWorkflow] = useState<string>('w1')
+
+  // Note dragging
   const [isDragging, setIsDragging] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 })
+
+  // Section dragging
+  const [isDraggingSection, setIsDraggingSection] = useState<string | null>(null)
+  const [sectionDragOffset, setSectionDragOffset] = useState<Position>({ x: 0, y: 0 })
+
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeEditor, setActiveEditor] = useState<string | null>(null)
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null)
@@ -64,7 +97,7 @@ const WorkflowNotes = (): JSX.Element => {
   useEffect(() => {
     loadFromStorage()
       .then((saved) => {
-        if (saved) setWorkflows(saved)
+        if (saved) setWorkflows(migrateWorkflows(saved))
       })
       .catch((err) => console.error('[storage] load failed:', err))
   }, [])
@@ -80,11 +113,9 @@ const WorkflowNotes = (): JSX.Element => {
   // Derived state
   // ---------------------------------------------------------------------------
   const activeWorkflowData = workflows.find((w) => w.id === activeWorkflow)
+  const currentLayoutMode = activeWorkflowData?.layoutMode ?? 'free'
 
   // Initialize note content on mount, and sync from external changes (AI fix).
-  // We never use dangerouslySetInnerHTML on the contentEditable div because React
-  // would re-render innerHTML on every state change, resetting the cursor to
-  // position 0 and causing text to type backwards.
   useEffect(() => {
     activeWorkflowData?.notes.forEach((note) => {
       const el = editorRefs.current[note.id]
@@ -130,7 +161,6 @@ const WorkflowNotes = (): JSX.Element => {
     }
   }
 
-  // Handles sentinel commands emitted by NoteToolbar via StickyNote
   const handleFormatText = async (command: string, value?: string): Promise<void> => {
     if (command === '__insertLink__') {
       const url = await showPrompt('Enter URL:')
@@ -163,7 +193,9 @@ const WorkflowNotes = (): JSX.Element => {
       content: '',
       position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
       hasUnsavedChanges: false,
-      savedContent: ''
+      savedContent: '',
+      sectionId: null,
+      order: (activeWorkflowData?.notes.length ?? 0)
     }
     const updated = workflows.map((w) =>
       w.id === activeWorkflow ? { ...w, notes: [...w.notes, newNote] } : w
@@ -174,10 +206,7 @@ const WorkflowNotes = (): JSX.Element => {
   const updateNoteTitle = (noteId: string, title: string): void => {
     const updated = workflows.map((w) =>
       w.id === activeWorkflow
-        ? {
-            ...w,
-            notes: w.notes.map((n) => (n.id === noteId ? { ...n, title } : n))
-          }
+        ? { ...w, notes: w.notes.map((n) => (n.id === noteId ? { ...n, title } : n)) }
         : w
     )
     setWorkflows(updated)
@@ -205,9 +234,7 @@ const WorkflowNotes = (): JSX.Element => {
         ? {
             ...w,
             notes: w.notes.map((n) =>
-              n.id === noteId
-                ? { ...n, savedContent: n.content, hasUnsavedChanges: false }
-                : n
+              n.id === noteId ? { ...n, savedContent: n.content, hasUnsavedChanges: false } : n
             )
           }
         : w
@@ -242,8 +269,84 @@ const WorkflowNotes = (): JSX.Element => {
     setContextMenu(null)
   }
 
+  const assignNoteToSection = (noteId: string, sectionId: string | null): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            notes: w.notes.map((n) => (n.id === noteId ? { ...n, sectionId } : n))
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
   // ---------------------------------------------------------------------------
-  // AI operations — prefer electronAPI IPC, fall back to direct fetch (web mode)
+  // Section CRUD
+  // ---------------------------------------------------------------------------
+  const addSection = async (): Promise<void> => {
+    const label = await showPrompt('Section label:')
+    if (!label) return
+
+    const existingSections = activeWorkflowData?.sections ?? []
+    const colorIdx = existingSections.length % SECTION_COLORS.length
+
+    const newSection: SectionHeader = {
+      id: `sec_${Date.now()}`,
+      label,
+      position: { x: 80 + Math.random() * 200, y: 60 + existingSections.length * 120 },
+      order: existingSections.length,
+      color: SECTION_COLORS[colorIdx]
+    }
+
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? { ...w, sections: [...w.sections, newSection] }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
+  const updateSectionLabel = (sectionId: string, label: string): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            sections: w.sections.map((s) => (s.id === sectionId ? { ...s, label } : s))
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
+  const deleteSection = (sectionId: string): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            sections: w.sections.filter((s) => s.id !== sectionId),
+            // Unassign notes that belonged to this section
+            notes: w.notes.map((n) =>
+              n.sectionId === sectionId ? { ...n, sectionId: null } : n
+            )
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layout mode toggle
+  // ---------------------------------------------------------------------------
+  const toggleLayoutMode = (mode: 'free' | 'stacked'): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow ? { ...w, layoutMode: mode } : w
+    )
+    saveToStorage(updated)
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI operations
   // ---------------------------------------------------------------------------
   const searchWithAI = async (noteId: string): Promise<void> => {
     const note = activeWorkflowData?.notes.find((n) => n.id === noteId)
@@ -289,7 +392,9 @@ const WorkflowNotes = (): JSX.Element => {
         content: `<strong>Search Results:</strong><br/><br/>${searchResults}`,
         position: { x: note.position.x + 340, y: note.position.y },
         hasUnsavedChanges: true,
-        savedContent: ''
+        savedContent: '',
+        sectionId: null,
+        order: (activeWorkflowData?.notes.length ?? 0) + 1
       }
 
       const updated = workflows.map((w) =>
@@ -308,7 +413,10 @@ const WorkflowNotes = (): JSX.Element => {
       console.error('AI search failed:', error)
       const errorUpdated = workflows.map((w) =>
         w.id === activeWorkflow
-          ? { ...w, notes: w.notes.map((n) => (n.id === noteId ? { ...n, isSearching: false } : n)) }
+          ? {
+              ...w,
+              notes: w.notes.map((n) => (n.id === noteId ? { ...n, isSearching: false } : n))
+            }
           : w
       )
       setWorkflows(errorUpdated)
@@ -369,7 +477,10 @@ const WorkflowNotes = (): JSX.Element => {
       console.error('AI fix failed:', error)
       const errorUpdated = workflows.map((w) =>
         w.id === activeWorkflow
-          ? { ...w, notes: w.notes.map((n) => (n.id === noteId ? { ...n, isFixing: false } : n)) }
+          ? {
+              ...w,
+              notes: w.notes.map((n) => (n.id === noteId ? { ...n, isFixing: false } : n))
+            }
           : w
       )
       setWorkflows(errorUpdated)
@@ -377,17 +488,14 @@ const WorkflowNotes = (): JSX.Element => {
   }
 
   // ---------------------------------------------------------------------------
-  // Drag handling
+  // Note drag handling
   // ---------------------------------------------------------------------------
-  const handleMouseDown = (noteId: string, e: React.MouseEvent<HTMLDivElement>): void => {
+  const handleNoteMouseDown = (noteId: string, e: React.MouseEvent<HTMLDivElement>): void => {
     const note = activeWorkflowData?.notes.find((n) => n.id === noteId)
     if (!note) return
 
     setIsDragging(noteId)
 
-    // clientX/Y are viewport coords; note.position is virtual-canvas-relative.
-    // Subtract the scroll container's bounding rect AND its current scroll offset
-    // so the drag offset stays consistent throughout the gesture.
     const canvas = canvasRef.current!
     const canvasRect = canvas.getBoundingClientRect()
     setDragOffset({
@@ -396,35 +504,76 @@ const WorkflowNotes = (): JSX.Element => {
     })
   }
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
-    if (!isDragging) return
+  // ---------------------------------------------------------------------------
+  // Section drag handling
+  // ---------------------------------------------------------------------------
+  const handleSectionMouseDown = (
+    sectionId: string,
+    e: React.MouseEvent<HTMLDivElement>
+  ): void => {
+    const section = activeWorkflowData?.sections.find((s) => s.id === sectionId)
+    if (!section) return
+
+    setIsDraggingSection(sectionId)
 
     const canvas = canvasRef.current!
     const canvasRect = canvas.getBoundingClientRect()
-    // Include scroll offset so notes track the pointer correctly on a scrolled canvas.
-    const newX = e.clientX - canvasRect.left + canvas.scrollLeft - dragOffset.x
-    const newY = e.clientY - canvasRect.top + canvas.scrollTop - dragOffset.y
+    setSectionDragOffset({
+      x: e.clientX - canvasRect.left + canvas.scrollLeft - section.position.x,
+      y: e.clientY - canvasRect.top + canvas.scrollTop - section.position.y
+    })
+  }
 
-    const updated = workflows.map((w) =>
-      w.id === activeWorkflow
-        ? {
-            ...w,
-            notes: w.notes.map((n) =>
-              n.id === isDragging ? { ...n, position: { x: newX, y: newY } } : n
-            )
-          }
-        : w
-    )
-    setWorkflows(updated)
+  // ---------------------------------------------------------------------------
+  // Unified mouse move / up for both notes and sections
+  // ---------------------------------------------------------------------------
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
+    const canvas = canvasRef.current!
+    const canvasRect = canvas.getBoundingClientRect()
+
+    if (isDragging) {
+      const newX = e.clientX - canvasRect.left + canvas.scrollLeft - dragOffset.x
+      const newY = e.clientY - canvasRect.top + canvas.scrollTop - dragOffset.y
+
+      const updated = workflows.map((w) =>
+        w.id === activeWorkflow
+          ? {
+              ...w,
+              notes: w.notes.map((n) =>
+                n.id === isDragging ? { ...n, position: { x: newX, y: newY } } : n
+              )
+            }
+          : w
+      )
+      setWorkflows(updated)
+    }
+
+    if (isDraggingSection) {
+      const newX = e.clientX - canvasRect.left + canvas.scrollLeft - sectionDragOffset.x
+      const newY = e.clientY - canvasRect.top + canvas.scrollTop - sectionDragOffset.y
+
+      const updated = workflows.map((w) =>
+        w.id === activeWorkflow
+          ? {
+              ...w,
+              sections: w.sections.map((s) =>
+                s.id === isDraggingSection ? { ...s, position: { x: newX, y: newY } } : s
+              )
+            }
+          : w
+      )
+      setWorkflows(updated)
+    }
   }
 
   const handleMouseUp = (): void => {
-    if (isDragging) {
+    if (isDragging || isDraggingSection) {
       setWorkflows((current) => {
         persistToStorage(current as StoragePayload)
         return current
       })
       setIsDragging(null)
+      setIsDraggingSection(null)
     }
   }
 
@@ -437,7 +586,9 @@ const WorkflowNotes = (): JSX.Element => {
       const newWorkflow: Workflow = {
         id: `w${Date.now()}`,
         name,
-        notes: []
+        notes: [],
+        sections: [],
+        layoutMode: 'free'
       }
       saveToStorage([...workflows, newWorkflow])
     }
@@ -471,48 +622,72 @@ const WorkflowNotes = (): JSX.Element => {
         onSelectWorkflow={setActiveWorkflow}
         onAddWorkflow={addWorkflow}
         onAddNote={addNote}
+        onAddSection={addSection}
+        layoutMode={currentLayoutMode}
+        onToggleLayoutMode={toggleLayoutMode}
       />
 
-      <Canvas
-        canvasRef={canvasRef}
-        notes={activeWorkflowData?.notes ?? []}
-        isDraggingId={isDragging}
-        contextMenu={contextMenu}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onNoteMouseDown={handleMouseDown}
-        onNoteContentChange={updateNoteContent}
-        onNoteTitleChange={updateNoteTitle}
-        onNoteFocus={setActiveEditor}
-        onNoteContextMenu={(e, noteId) => {
-          e.preventDefault()
-          setContextMenu({ x: e.clientX, y: e.clientY, noteId })
-        }}
-        onSaveNote={saveNote}
-        onDeleteNote={deleteNote}
-        onFixWithAI={fixWithAI}
-        onFormatText={handleFormatText}
-        onSearchWithAI={searchWithAI}
-        onDuplicateNote={duplicateNote}
-        onNoteDoubleClick={(noteId) => setFullscreenNote({ noteId })}
-        editorRefCallback={editorRefCallback}
-      />
+      {currentLayoutMode === 'stacked' ? (
+        <StackedCanvas
+          notes={activeWorkflowData?.notes ?? []}
+          sections={activeWorkflowData?.sections ?? []}
+          onNoteContentChange={updateNoteContent}
+          onNoteTitleChange={updateNoteTitle}
+          onNoteFocus={setActiveEditor}
+          onSaveNote={saveNote}
+          onDeleteNote={deleteNote}
+          onFixWithAI={fixWithAI}
+          onAssignSection={assignNoteToSection}
+          editorRefCallback={editorRefCallback}
+        />
+      ) : (
+        <Canvas
+          canvasRef={canvasRef}
+          notes={activeWorkflowData?.notes ?? []}
+          sections={activeWorkflowData?.sections ?? []}
+          isDraggingId={isDragging}
+          draggingSectionId={isDraggingSection}
+          contextMenu={contextMenu}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onNoteMouseDown={handleNoteMouseDown}
+          onSectionMouseDown={handleSectionMouseDown}
+          onNoteContentChange={updateNoteContent}
+          onNoteTitleChange={updateNoteTitle}
+          onNoteFocus={setActiveEditor}
+          onNoteContextMenu={(e, noteId) => {
+            e.preventDefault()
+            setContextMenu({ x: e.clientX, y: e.clientY, noteId })
+          }}
+          onSaveNote={saveNote}
+          onDeleteNote={deleteNote}
+          onFixWithAI={fixWithAI}
+          onFormatText={handleFormatText}
+          onSearchWithAI={searchWithAI}
+          onDuplicateNote={duplicateNote}
+          onNoteDoubleClick={(noteId) => setFullscreenNote({ noteId })}
+          onDeleteSection={deleteSection}
+          onUpdateSectionLabel={updateSectionLabel}
+          editorRefCallback={editorRefCallback}
+        />
+      )}
 
-      {fullscreenNote && (() => {
-        const note = activeWorkflowData?.notes.find((n) => n.id === fullscreenNote.noteId)
-        if (!note) return null
-        return (
-          <FullscreenEditor
-            note={note}
-            onContentChange={(content) => updateNoteContent(note.id, content)}
-            onTitleChange={(title) => updateNoteTitle(note.id, title)}
-            onSave={() => saveNote(note.id)}
-            onFixWithAI={() => fixWithAI(note.id)}
-            onFormatText={handleFormatText}
-            onClose={() => setFullscreenNote(null)}
-          />
-        )
-      })()}
+      {fullscreenNote &&
+        (() => {
+          const note = activeWorkflowData?.notes.find((n) => n.id === fullscreenNote.noteId)
+          if (!note) return null
+          return (
+            <FullscreenEditor
+              note={note}
+              onContentChange={(content) => updateNoteContent(note.id, content)}
+              onTitleChange={(title) => updateNoteTitle(note.id, title)}
+              onSave={() => saveNote(note.id)}
+              onFixWithAI={() => fixWithAI(note.id)}
+              onFormatText={handleFormatText}
+              onClose={() => setFullscreenNote(null)}
+            />
+          )
+        })()}
 
       {promptDialog && (
         <PromptDialog
