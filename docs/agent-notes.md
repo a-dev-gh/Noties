@@ -83,3 +83,36 @@ Phase 1 (DONE) -> Phase 2 (DONE) -> Phase 3 (decomposition)
 
 ### Open Questions for Adrian
 - None — plan is ready to execute. Adrian should review the updated AGENTS.md and confirm the phase ordering before we start Phase 3.
+
+---
+
+## Session — 2026-04-11
+
+### Phase 3: Component Decomposition (In Progress)
+Splitting WorkflowNotes.tsx (1035 lines) into focused components:
+- EmptyState.tsx — "No notes yet" placeholder
+- ContextMenu.tsx — Right-click menu overlay
+- NoteToolbar.tsx — Rich text formatting toolbar
+- LoadingOverlay.tsx — AI operation spinner
+- StickyNote.tsx — Individual note card (biggest piece)
+- Canvas.tsx — Grid canvas container with mouse handlers
+- Header.tsx — App header with logo, tabs, buttons
+- PromptDialog.tsx — Custom modal replacing window.prompt()
+
+### Pending Features (Phase 3B/3C)
+- Note titles on each sticky note
+- Scrollable canvas (pan all directions)
+- Double-click note → fullscreen editor
+- Workflow nav carousel (max 5 visible, arrows)
+- Section headers/dividers
+- Free mode vs Stacked mode toggle
+- Settings dashboard (Phase 5)
+
+### Bugs Resolved (all 7)
+BUG-001: ELECTRON_RUN_AS_NODE — RESOLVED
+BUG-002: contextMenuItemStyle after return — RESOLVED
+BUG-003: Missing x-api-key header — RESOLVED
+BUG-004: Drag offset viewport/canvas mismatch — RESOLVED
+BUG-005: Text writes backwards — RESOLVED
+BUG-006: prompt() crashes Electron — RESOLVED
+BUG-007: White screen useEffect ordering — RESOLVED

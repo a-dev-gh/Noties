@@ -27,9 +27,11 @@ Noties is a productivity tool for organizing thoughts, tasks, and research acros
 
 ## Current Status
 
-**Phase 2: Prototype Port** — Complete. Full prototype ported to TypeScript, running inside Electron. All prototype bugs fixed plus 3 additional runtime bugs (backwards text, prompt() crash, white screen). Code reviewed and fixes applied.
+**Phase 3: Component Decomposition** — In Progress. Splitting the 1035-line monolith into focused components (Header, Canvas, StickyNote, NoteToolbar, ContextMenu, etc.).
 
-**Next:** Phase 3 — Component decomposition + new features (settings dashboard, note fullscreen, workflow nav redesign, note titles, scrollable canvas, section headers, layout modes).
+**Completed:** Phase 1 (Scaffolding), Phase 2 (Prototype Port), 7 bugs fixed (BUG-001 through BUG-007).
+
+**Upcoming:** Note titles, scrollable canvas, fullscreen editor, workflow nav carousel, section dividers, free/stacked layout mode, settings dashboard.
 
 ## Tech Stack
 
