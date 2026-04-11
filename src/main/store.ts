@@ -11,8 +11,14 @@ interface Workflow {
   notes: unknown[]
 }
 
+interface Settings {
+  apiKey?: string
+  apiKeyEncrypted?: boolean
+}
+
 interface StoreSchema {
   workflows: Workflow[]
+  settings: Settings
 }
 
 // Default workflows matching the app prototype
@@ -21,7 +27,8 @@ const defaults: StoreSchema = {
     { id: 'w1', name: 'Frontend Development', notes: [] },
     { id: 'w2', name: 'API Integration', notes: [] },
     { id: 'w3', name: 'Database Design', notes: [] }
-  ]
+  ],
+  settings: {}
 }
 
 // Cache the in-flight promise (not just the resolved instance) to prevent

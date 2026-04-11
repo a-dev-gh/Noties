@@ -2,6 +2,7 @@ import React from 'react'
 import type { NoteCardProps } from '../types'
 import NoteToolbar from './NoteToolbar'
 import LoadingOverlay from './LoadingOverlay'
+import ResizeHandle from './ResizeHandle'
 
 interface StickyNoteProps extends NoteCardProps {
   editorRef: (el: HTMLDivElement | null) => void
@@ -20,8 +21,11 @@ const StickyNote = ({
   onFixWithAI,
   onFormatText,
   onDoubleClick,
+  onResize,
   editorRef
 }: StickyNoteProps): JSX.Element => {
+  const noteWidth = note.width ?? 320
+  const noteHeight = note.height ?? 240
   const isLoading = !!(note.isSearching || note.isFixing)
   const loadingMessage = note.isSearching ? 'Searching...' : 'Fixing...'
 
@@ -32,8 +36,8 @@ const StickyNote = ({
         position: 'absolute',
         left: note.position.x,
         top: note.position.y,
-        width: '320px',
-        minHeight: '240px',
+        width: `${noteWidth}px`,
+        minHeight: `${noteHeight}px`,
         background: 'white',
         borderRadius: '12px',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
@@ -236,6 +240,13 @@ const StickyNote = ({
           {note.hasUnsavedChanges ? '💾 Save' : '✓ Saved'}
         </button>
       </div>
+
+      <ResizeHandle
+        noteId={note.id}
+        currentWidth={noteWidth}
+        currentHeight={noteHeight}
+        onResize={onResize}
+      />
     </div>
   )
 }

@@ -8,12 +8,14 @@ import type {
   FullscreenEditorState,
   StoragePayload
 } from '../types'
-import Header from './Header'
+import NavBar from './NavBar'
+import SubNav from './SubNav'
 import Canvas from './Canvas'
-import StackedCanvas from './StackedCanvas'
+import GridCanvas from './GridCanvas'
 import FullscreenEditor from './FullscreenEditor'
 import PromptDialog from './PromptDialog'
 import type { PromptDialogState } from './PromptDialog'
+import SettingsPanel from './SettingsPanel'
 
 // ---------------------------------------------------------------------------
 // Storage helpers — prefer electronAPI, fall back to localStorage (web mode)
@@ -41,13 +43,19 @@ const persistToStorage = (data: StoragePayload): void => {
   }
 }
 
-/** Migrate older persisted workflows that lack sections/layoutMode fields. */
+/** Migrate older persisted workflows that lack sections/layoutMode fields.
+ *  Also maps the deprecated 'stacked' layoutMode to 'grid' for backward compat. */
 const migrateWorkflows = (raw: StoragePayload): Workflow[] =>
-  raw.map((w) => ({
-    ...w,
-    sections: (w as Workflow).sections ?? [],
-    layoutMode: (w as Workflow).layoutMode ?? 'free'
-  }))
+  raw.map((w) => {
+    const raw_mode = (w as Workflow).layoutMode ?? 'free'
+    // 'stacked' was the old name for what is now the grid canvas
+    const layoutMode: 'free' | 'grid' = raw_mode === ('stacked' as string) ? 'grid' : raw_mode
+    return {
+      ...w,
+      sections: (w as Workflow).sections ?? [],
+      layoutMode
+    }
+  })
 
 // ---------------------------------------------------------------------------
 // Default workflows
@@ -86,6 +94,7 @@ const WorkflowNotes = (): JSX.Element => {
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeEditor, setActiveEditor] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false)
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null)
   const [fullscreenNote, setFullscreenNote] = useState<FullscreenEditorState | null>(null)
 
@@ -281,6 +290,20 @@ const WorkflowNotes = (): JSX.Element => {
     saveToStorage(updated)
   }
 
+  const resizeNote = (noteId: string, size: { width: number; height: number }): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            notes: w.notes.map((n) =>
+              n.id === noteId ? { ...n, width: size.width, height: size.height } : n
+            )
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
   // ---------------------------------------------------------------------------
   // Section CRUD
   // ---------------------------------------------------------------------------
@@ -336,9 +359,37 @@ const WorkflowNotes = (): JSX.Element => {
   }
 
   // ---------------------------------------------------------------------------
+  // Grid mode: commit snapped position for a note
+  // ---------------------------------------------------------------------------
+  const updateNotePosition = (noteId: string, pos: Position): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            notes: w.notes.map((n) => (n.id === noteId ? { ...n, position: pos } : n))
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
+  // Grid mode: commit snapped position for a section
+  const updateSectionPosition = (sectionId: string, pos: Position): void => {
+    const updated = workflows.map((w) =>
+      w.id === activeWorkflow
+        ? {
+            ...w,
+            sections: w.sections.map((s) => (s.id === sectionId ? { ...s, position: pos } : s))
+          }
+        : w
+    )
+    saveToStorage(updated)
+  }
+
+  // ---------------------------------------------------------------------------
   // Layout mode toggle
   // ---------------------------------------------------------------------------
-  const toggleLayoutMode = (mode: 'free' | 'stacked'): void => {
+  const toggleLayoutMode = (mode: 'free' | 'grid'): void => {
     const updated = workflows.map((w) =>
       w.id === activeWorkflow ? { ...w, layoutMode: mode } : w
     )
@@ -616,28 +667,46 @@ const WorkflowNotes = (): JSX.Element => {
         flexDirection: 'column'
       }}
     >
-      <Header
+      <NavBar
         workflows={workflows}
         activeWorkflowId={activeWorkflow}
         onSelectWorkflow={setActiveWorkflow}
         onAddWorkflow={addWorkflow}
-        onAddNote={addNote}
-        onAddSection={addSection}
-        layoutMode={currentLayoutMode}
-        onToggleLayoutMode={toggleLayoutMode}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {currentLayoutMode === 'stacked' ? (
-        <StackedCanvas
+      <SubNav
+        layoutMode={currentLayoutMode}
+        onToggleLayoutMode={toggleLayoutMode}
+        onAddNote={addNote}
+        onAddSection={addSection}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      {currentLayoutMode === 'grid' ? (
+        <GridCanvas
           notes={activeWorkflowData?.notes ?? []}
           sections={activeWorkflowData?.sections ?? []}
+          contextMenu={contextMenu}
           onNoteContentChange={updateNoteContent}
           onNoteTitleChange={updateNoteTitle}
           onNoteFocus={setActiveEditor}
+          onNoteContextMenu={(e, noteId) => {
+            e.preventDefault()
+            setContextMenu({ x: e.clientX, y: e.clientY, noteId })
+          }}
           onSaveNote={saveNote}
           onDeleteNote={deleteNote}
           onFixWithAI={fixWithAI}
-          onAssignSection={assignNoteToSection}
+          onFormatText={handleFormatText}
+          onSearchWithAI={searchWithAI}
+          onDuplicateNote={duplicateNote}
+          onNoteDoubleClick={(noteId) => setFullscreenNote({ noteId })}
+          onDeleteSection={deleteSection}
+          onUpdateSectionLabel={updateSectionLabel}
+          onNoteResize={resizeNote}
+          onNotePositionChange={updateNotePosition}
+          onSectionPositionChange={updateSectionPosition}
           editorRefCallback={editorRefCallback}
         />
       ) : (
@@ -668,6 +737,7 @@ const WorkflowNotes = (): JSX.Element => {
           onNoteDoubleClick={(noteId) => setFullscreenNote({ noteId })}
           onDeleteSection={deleteSection}
           onUpdateSectionLabel={updateSectionLabel}
+          onNoteResize={resizeNote}
           editorRefCallback={editorRefCallback}
         />
       )}
@@ -696,6 +766,11 @@ const WorkflowNotes = (): JSX.Element => {
           onClose={() => setPromptDialog(null)}
         />
       )}
+
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   )
 }

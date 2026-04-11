@@ -9,6 +9,11 @@ const api = {
   fixWithAI: (content: string): Promise<string> => ipcRenderer.invoke('ai:fix', content),
   searchWithAI: (content: string): Promise<string> => ipcRenderer.invoke('ai:search', content),
 
+  // Settings — API key management
+  saveApiKey: (key: string): Promise<void> => ipcRenderer.invoke('settings:save-api-key', key),
+  loadApiKey: (): Promise<string | null> => ipcRenderer.invoke('settings:load-api-key'),
+  deleteApiKey: (): Promise<void> => ipcRenderer.invoke('settings:delete-api-key'),
+
   // Window controls
   minimize: (): void => { ipcRenderer.send('window:minimize') },
   maximize: (): void => { ipcRenderer.send('window:maximize') },

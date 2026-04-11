@@ -38,6 +38,10 @@ export interface Note {
   sectionId?: string | null
   /** Order within its section (stacked mode) */
   order?: number
+  /** Note card width in px (default 320) */
+  width?: number
+  /** Note card height in px (default 240) */
+  height?: number
 }
 
 /** A labeled divider/grouping header on the canvas. */
@@ -55,7 +59,7 @@ export interface Workflow {
   name: string
   notes: Note[]
   sections: SectionHeader[]
-  layoutMode: 'free' | 'stacked'
+  layoutMode: 'free' | 'grid'
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +89,7 @@ export interface PersistedWorkflow {
   name: string
   notes: PersistedNote[]
   sections: SectionHeader[]
-  layoutMode: 'free' | 'stacked'
+  layoutMode: 'free' | 'grid'
 }
 
 export type StoragePayload = PersistedWorkflow[]
@@ -101,8 +105,32 @@ export interface HeaderProps {
   onAddWorkflow: () => void
   onAddNote: () => void
   onAddSection: () => void
-  layoutMode: 'free' | 'stacked'
-  onToggleLayoutMode: (mode: 'free' | 'stacked') => void
+  layoutMode: 'free' | 'grid'
+  onToggleLayoutMode: (mode: 'free' | 'grid') => void
+}
+
+export interface NavBarProps {
+  workflows: Workflow[]
+  activeWorkflowId: string
+  onSelectWorkflow: (workflowId: string) => void
+  onAddWorkflow: () => void
+  onOpenSettings: () => void
+}
+
+export interface SubNavProps {
+  layoutMode: 'free' | 'grid'
+  onToggleLayoutMode: (mode: 'free' | 'grid') => void
+  onAddNote: () => void
+  onAddSection: () => void
+  onOpenSettings: () => void
+}
+
+export interface WorkflowDropdownProps {
+  workflows: Workflow[]
+  activeWorkflowId: string
+  onSelectWorkflow: (workflowId: string) => void
+  onAddWorkflow: () => void
+  onClose: () => void
 }
 
 export interface CanvasProps {
@@ -125,6 +153,7 @@ export interface CanvasProps {
   onNoteDoubleClick: (noteId: string) => void
   onDeleteSection: (sectionId: string) => void
   onUpdateSectionLabel: (sectionId: string, label: string) => void
+  onNoteResize: (noteId: string, size: { width: number; height: number }) => void
 }
 
 export interface NoteCardProps {
@@ -140,6 +169,7 @@ export interface NoteCardProps {
   onFixWithAI: () => void
   onFormatText: (command: string, value?: string) => void
   onDoubleClick: () => void
+  onResize: (size: { width: number; height: number }) => void
 }
 
 export interface NoteToolbarProps {
@@ -175,5 +205,10 @@ export interface FullscreenEditorProps {
   onSave: () => void
   onFixWithAI: () => void
   onFormatText: (command: string, value?: string) => void
+  onClose: () => void
+}
+
+export interface SettingsPanelProps {
+  isOpen: boolean
   onClose: () => void
 }

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, safeStorage } from 'electron'
 import { getStore } from './store'
 
 // ---------------------------------------------------------------------------
@@ -28,11 +28,30 @@ interface AnthropicResponse {
  * @param prompt     - The user message to send
  * @param maxTokens  - Upper bound on response length
  */
+async function getApiKey(): Promise<string | null> {
+  // Check store first (user-configured key takes priority)
+  const store = await getStore()
+  const settings = store.get('settings') as { apiKey?: string; apiKeyEncrypted?: boolean } | undefined
+  if (settings?.apiKey) {
+    if (settings.apiKeyEncrypted && safeStorage.isEncryptionAvailable()) {
+      try {
+        return safeStorage.decryptString(Buffer.from(settings.apiKey, 'base64'))
+      } catch {
+        // Decryption failed — fall through to env var
+      }
+    } else if (!settings.apiKeyEncrypted) {
+      return settings.apiKey
+    }
+  }
+  // Fall back to environment variable
+  return process.env.ANTHROPIC_API_KEY ?? null
+}
+
 async function callAnthropic(prompt: string, maxTokens: number): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await getApiKey()
 
   if (!apiKey) {
-    return 'API key not configured. Set the ANTHROPIC_API_KEY environment variable to enable AI features.'
+    return 'API key not configured. Add your Anthropic API key in Settings to enable AI features.'
   }
 
   const body: AnthropicRequest = {
@@ -138,5 +157,42 @@ export function registerIPC(): void {
   // Renderer calls: window.electronAPI.close()
   ipcMain.on('window:close', () => {
     BrowserWindow.getFocusedWindow()?.close()
+  })
+
+  // ---- Settings: save API key -----------------------------------------------
+  // Renderer calls: window.electronAPI.saveApiKey(key)
+  // Encrypts via safeStorage if available, then persists to electron-store.
+  ipcMain.handle('settings:save-api-key', async (_event, key: string) => {
+    const store = await getStore()
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(key).toString('base64')
+      store.set('settings', { apiKey: encrypted, apiKeyEncrypted: true })
+    } else {
+      store.set('settings', { apiKey: key, apiKeyEncrypted: false })
+    }
+  })
+
+  // ---- Settings: load API key -----------------------------------------------
+  // Renderer calls: window.electronAPI.loadApiKey()
+  // Returns the plaintext key (decrypting if necessary), or null if not set.
+  ipcMain.handle('settings:load-api-key', async () => {
+    const store = await getStore()
+    const settings = store.get('settings') as { apiKey?: string; apiKeyEncrypted?: boolean } | undefined
+    if (!settings?.apiKey) return null
+    if (settings.apiKeyEncrypted && safeStorage.isEncryptionAvailable()) {
+      try {
+        return safeStorage.decryptString(Buffer.from(settings.apiKey, 'base64'))
+      } catch {
+        return null
+      }
+    }
+    return settings.apiKey
+  })
+
+  // ---- Settings: delete API key ---------------------------------------------
+  // Renderer calls: window.electronAPI.deleteApiKey()
+  ipcMain.handle('settings:delete-api-key', async () => {
+    const store = await getStore()
+    store.set('settings', {})
   })
 }

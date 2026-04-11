@@ -11,6 +11,7 @@ interface CanvasExtendedProps extends CanvasProps {
   onDuplicateNote: (noteId: string) => void
   onNoteTitleChange: (noteId: string, title: string) => void
   editorRefCallback: (noteId: string) => (el: HTMLDivElement | null) => void
+  onNoteResize: (noteId: string, size: { width: number; height: number }) => void
 }
 
 // Virtual canvas dimensions — notes can be placed anywhere within this space.
@@ -41,7 +42,8 @@ const Canvas = ({
   onNoteDoubleClick,
   onDeleteSection,
   onUpdateSectionLabel,
-  editorRefCallback
+  editorRefCallback,
+  onNoteResize
 }: CanvasExtendedProps): JSX.Element => {
   return (
     <div
@@ -97,6 +99,7 @@ const Canvas = ({
             onFixWithAI={() => onFixWithAI(note.id)}
             onFormatText={onFormatText}
             onDoubleClick={() => onNoteDoubleClick(note.id)}
+            onResize={(size) => onNoteResize(note.id, size)}
             editorRef={editorRefCallback(note.id)}
           />
         ))}
